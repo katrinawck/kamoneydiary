@@ -1,0 +1,820 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>卓淇記帳與報銷系統</title>
+<style>
+/* ========== 唯美馬卡龍・柔和少女風 ========== */
+* { margin:0; padding:0; box-sizing:border-box; font-family:"PingFang SC","Microsoft YaHei","Hiragino Sans GB",sans-serif; }
+body { background:#FFF7FB; color:#7A6B78; font-size:15px; line-height:1.7; letter-spacing:1px;
+  min-height:100vh; max-width:520px; margin:0 auto; padding-bottom:60px; }
+.screen { display:none; animation:fadeIn .3s; }
+.screen.active { display:block; }
+@keyframes fadeIn { from{opacity:0; transform:translateY(8px);} to{opacity:1; transform:none;} }
+
+/* 卡片 */
+.card { background:#E8F6F3; border-radius:24px; margin:16px 18px; padding:22px 20px;
+  border:2px solid #F3DCF0; box-shadow:0 8px 24px rgba(212,191,255,.18); position:relative; }
+.card-title { font-size:19px; font-weight:700; color:#6B5B7A; margin-bottom:14px; letter-spacing:2px; }
+.section-title { font-size:13px; color:#B0A3B4; margin:22px 24px 4px; letter-spacing:3px; }
+.muted { color:#B0A3B4; font-size:12px; }
+.pos { color:#B79BE8; font-weight:700; }
+.neg { color:#E8A0B4; font-weight:700; }
+.num-hero { color:#D4BFFF; font-weight:800; font-size:19px; }
+.row { display:flex; justify-content:space-between; align-items:center; }
+
+/* 按鈕 */
+.btn { display:block; width:100%; border:none; border-radius:999px; padding:13px 0; margin-top:14px;
+  font-size:15px; letter-spacing:3px; cursor:pointer; font-weight:700; transition:.2s; }
+.btn-primary { background:#FFC6D9; color:#6B5B7A; box-shadow:0 6px 18px rgba(255,198,217,.45); }
+.btn-primary:hover { background:#FFA5C1; }
+.btn-secondary { background:#CDE7FF; color:#5B7A9B; box-shadow:0 6px 18px rgba(205,231,255,.5); }
+.btn-secondary:hover { background:#B5DAFF; }
+.btn-danger { background:#FFE2B8; color:#9B7A4A; }
+.btn-back { background:rgba(255,255,255,.85); color:#6B5B7A; border:2px solid #FFC6D9; font-weight:600; }
+
+/* 表單 */
+.field { display:flex; align-items:center; padding:14px 0; border-bottom:1px dashed #F3DCF0; gap:8px; }
+.field-label { width:110px; color:#6B5B7A; font-weight:600; flex-shrink:0; }
+.field input, .field select { flex:1; text-align:right; font-size:15px; color:#7A6B78;
+  background:rgba(255,255,255,.75); border:2px solid #F3DCF0; border-radius:999px; padding:8px 14px; outline:none; }
+.field input:focus { border-color:#D4BFFF; }
+.diff-box { margin-top:16px; padding:14px 16px; background:rgba(255,255,255,.8);
+  border:2px solid #D4BFFF; border-radius:18px; font-size:14px; color:#6B5B7A; }
+
+/* 標籤 */
+.tag { font-size:11px; padding:3px 10px; border-radius:999px; display:inline-block; font-weight:600; letter-spacing:1px; }
+.tag-brunch { background:#CDE7FF; color:#5B7A9B; }
+.tag-other { background:#FFE2B8; color:#9B7A4A; }
+.tag-done { background:#B8E8D8; color:#4A9B82; }
+.tag-todo { background:#FFC6D9; color:#A86080; }
+
+/* 列表 */
+.cell { padding:14px 0; border-bottom:1px dashed #F3DCF0; }
+.cell:last-child { border-bottom:none; }
+.empty { text-align:center; color:#C9BBD6; padding:56px 0; font-size:14px; letter-spacing:3px; }
+.list-head,.list-row { display:flex; align-items:center; padding:10px 0; font-size:13px; color:#7A6B78; }
+.list-head { color:#B0A3B4; border-bottom:1px dashed #F3DCF0; font-size:11px; letter-spacing:2px; }
+.list-row { border-bottom:1px dashed #F0E4EE; }
+.list-head span:nth-child(1),.list-row span:nth-child(1){width:88px;flex-shrink:0}
+.list-head span:nth-child(2),.list-row span:nth-child(2){width:52px;flex-shrink:0}
+.list-head span:nth-child(3),.list-row span:nth-child(3){flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.list-head span:nth-child(4),.list-row span:nth-child(4){width:80px;text-align:right;flex-shrink:0}
+.list-head span:nth-child(5),.list-row span:nth-child(5){width:60px;text-align:right;flex-shrink:0}
+.total-bar { background:#E8F6F3; border:2px solid #F3DCF0; border-radius:24px 24px 0 0;
+  margin:0 18px; padding:16px 22px; font-weight:700; color:#6B5B7A; position:sticky; bottom:0; }
+.total-num { font-size:21px; font-weight:800; color:#E88FA8; }
+.total-done { font-size:21px; font-weight:800; color:#4A9B82; }
+
+/* 裝飾 */
+.deco-corner { position:fixed; font-size:26px; opacity:.55; z-index:0; pointer-events:none; }
+.deco-corner.tl{top:14px;left:16px;color:#FFC6D9;transform:rotate(-15deg)}
+.deco-corner.tr{top:20px;right:18px;color:#D4BFFF}
+.deco-corner.bl{bottom:18px;left:20px;color:#B8E8D8}
+.deco-corner.br{bottom:14px;right:16px;color:#FFC6D9;transform:rotate(20deg)}
+
+/* 登入頁 */
+.logo-ring { width:96px; height:96px; border-radius:50%; margin:60px auto 0; padding:6px;
+  background:linear-gradient(135deg,#FFC6D9,#D4BFFF,#CDE7FF); box-shadow:0 10px 30px rgba(255,198,217,.5); }
+.logo-inner { width:100%; height:100%; border-radius:50%; background:#FFF7FB;
+  display:flex; align-items:center; justify-content:center; font-size:42px; font-weight:800; color:#D4BFFF; }
+.brand { text-align:center; padding:24px 20px 18px; }
+.brand-title { font-size:24px; font-weight:800; color:#6B5B7A; letter-spacing:4px; }
+.brand-sub { margin-top:10px; color:#B0A3B4; font-size:14px; letter-spacing:3px; }
+
+/* 主選單 */
+.stats-card { background:linear-gradient(135deg,#FFD9E8 0%,#E8D9FF 55%,#D6EEFF 100%);
+  border:2px solid #F3DCF0; border-radius:28px; margin:18px; padding:26px 24px; position:relative; overflow:hidden;
+  box-shadow:0 10px 32px rgba(212,191,255,.25); }
+.stats-deco { position:absolute; opacity:.8; }
+.stats-deco.d1{top:10px;right:16px;font-size:20px;color:#fff}
+.stats-deco.d2{bottom:14px;right:46px;font-size:14px;color:#fff}
+.stats-date { font-size:15px; font-weight:700; color:#6B5B7A; margin-bottom:16px; letter-spacing:2px; }
+.stats-grid { display:flex; position:relative; z-index:1; }
+.stats-item { flex:1; }
+.stats-label { font-size:12px; color:#9B8BA8; }
+.stats-value { font-size:28px; font-weight:800; color:#8E6FBF; margin-top:4px; letter-spacing:1px; }
+.menu { padding:8px 20px; }
+.menu-item { display:flex; align-items:center; padding:15px 0; border-bottom:1px dashed #F3DCF0; cursor:pointer; }
+.menu-item:last-child { border-bottom:none; }
+.menu-num { width:32px; height:32px; border-radius:50%; font-size:14px; font-weight:800; flex-shrink:0;
+  display:flex; align-items:center; justify-content:center; margin-right:16px; }
+.mc0{background:#FFC6D9;color:#A86080}.mc1{background:#CDE7FF;color:#5B7A9B}.mc2{background:#B8E8D8;color:#4A9B82}
+.mc3{background:#FFE2B8;color:#9B7A4A}.mc4{background:#D4BFFF;color:#7A5BA8}.mc5{background:#FFD9E8;color:#A86080}
+.mc6{background:#D6EEFF;color:#5B7A9B}.mc7{background:#C8E6D0;color:#4A9B82}
+.menu-text { flex:1; font-size:15px; color:#6B5B7A; letter-spacing:1px; }
+.menu-arrow { color:#D4BFFF; font-size:20px; font-weight:700; }
+
+/* 日曆 */
+.cal-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
+.cal-title { font-size:18px; font-weight:800; color:#6B5B7A; letter-spacing:2px; }
+.cal-nav { width:36px; height:36px; line-height:34px; text-align:center; font-size:22px;
+  color:#A86080; background:#FFC6D9; border-radius:50%; cursor:pointer; box-shadow:0 4px 14px rgba(255,198,217,.5); }
+.cal-week-row { display:flex; margin-bottom:6px; }
+.cal-week-cell { flex:1; text-align:center; color:#B0A3B4; font-size:12px; letter-spacing:2px; }
+.cal-row { display:flex; }
+.cal-cell { flex:1; height:46px; display:flex; flex-direction:column; align-items:center;
+  justify-content:center; border-radius:12px; margin:2px 0; cursor:pointer; }
+.cal-cell.selected { background:linear-gradient(135deg,#FFC6D9,#D4BFFF); box-shadow:0 4px 14px rgba(255,198,217,.45); }
+.cal-cell.selected .cal-day { color:#fff; font-weight:800; }
+.cal-cell.today .cal-day { color:#B87BA8; font-weight:800; }
+.cal-day { font-size:14px; color:#7A6B78; }
+.cal-dot { width:5px; height:5px; border-radius:50%; margin-top:3px; }
+.cal-dot.show { background:#B87BA8; }
+.cal-cell.selected .cal-dot.show { background:#fff; }
+
+/* 母親頁 hero */
+.hero { background:linear-gradient(135deg,#FFD9E8 0%,#E8D9FF 55%,#D6EEFF 100%);
+  border-radius:0 0 32px 32px; border-bottom:2px solid #F3DCF0; padding:34px 24px 28px;
+  text-align:center; position:relative; overflow:hidden; }
+.hero-deco { position:absolute; opacity:.8; }
+.hero-deco.d1{top:12px;left:20px;font-size:20px;color:#fff}
+.hero-deco.d2{top:16px;right:22px;font-size:18px;color:#fff}
+.hero-title { font-size:22px; font-weight:800; color:#6B5B7A; letter-spacing:4px; }
+.hero-sub { margin-top:8px; font-size:14px; color:#9B8BA8; letter-spacing:2px; }
+
+/* 分頁膠囊 */
+.seg { display:flex; background:#E8F6F3; border:2px solid #F3DCF0; border-radius:999px; padding:5px; margin:16px 18px 0; }
+.seg-item { flex:1; text-align:center; padding:10px 0; font-size:14px; color:#B0A3B4;
+  border-radius:999px; letter-spacing:2px; cursor:pointer; transition:.2s; }
+.seg-item.active { background:#FFC6D9; color:#A86080; font-weight:700; box-shadow:0 4px 14px rgba(255,198,217,.5); }
+
+/* 週報 */
+.week-report { margin-top:14px; padding:14px 16px; background:rgba(255,255,255,.8);
+  border:2px solid #F3DCF0; border-radius:18px; font-size:14px; }
+.report-title { color:#C9BBD6; font-size:11px; margin-bottom:6px; letter-spacing:3px; }
+.detail-row { display:flex; align-items:center; justify-content:space-between; padding:9px 0;
+  font-size:13px; border-bottom:1px dashed #F0E4EE; }
+.detail-row:last-child { border-bottom:none; }
+.week-card { cursor:pointer; }
+.back-bar { padding:14px 18px 0; }
+.back-bar .btn { margin-top:0; }
+.toast { position:fixed; top:20px; left:50%; transform:translateX(-50%); background:#B8E8D8;
+  color:#4A9B82; padding:10px 26px; border-radius:999px; font-size:14px; font-weight:700;
+  letter-spacing:2px; box-shadow:0 6px 20px rgba(184,232,216,.6); z-index:99; display:none; }
+.toast.warn { background:#FFE2B8; color:#9B7A4A; }
+</style>
+</head>
+<body>
+
+<div class="deco-corner tl">✿</div><div class="deco-corner tr">☆</div>
+<div class="deco-corner bl">♡</div><div class="deco-corner br">✿</div>
+<div class="toast" id="toast"></div>
+
+<!-- ========== 身份選擇畫面 ========== -->
+<div class="screen active" id="sc-login">
+  <div class="logo-ring"><div class="logo-inner">卓</div></div>
+  <div class="brand">
+    <div class="brand-title">卓淇記帳與報銷系統</div>
+    <div class="brand-sub">✧ 請選擇登入身份 ✧</div>
+  </div>
+  <div class="card">
+    <button class="btn btn-primary" onclick="askPwd()">卓淇本人（需要密碼）</button>
+    <button class="btn btn-secondary" onclick="loginMother()">母親（僅可檢視報銷清單）</button>
+  </div>
+  <div class="card" id="pwd-card" style="display:none">
+    <div class="card-title">♡ 請輸入密碼</div>
+    <div class="field">
+      <div class="field-label">密碼</div>
+      <input type="password" id="pwd-input" maxlength="8" placeholder="請輸入密碼">
+    </div>
+    <button class="btn btn-primary" onclick="confirmPwd()">確認登入</button>
+    <div class="muted" style="text-align:center;margin-top:10px">密碼錯誤將返回身份選擇畫面</div>
+  </div>
+</div>
+
+<!-- ========== 卓淇主選單 ========== -->
+<div class="screen" id="sc-home">
+  <div class="stats-card">
+    <div class="stats-deco d1">✿</div><div class="stats-deco d2">☆</div>
+    <div class="stats-date" id="home-date"></div>
+    <div class="stats-grid">
+      <div class="stats-item"><div class="stats-label" id="home-weeklabel"></div>
+        <div class="stats-value" id="home-weeksaving"></div></div>
+      <div class="stats-item"><div class="stats-label">累計總儲蓄</div>
+        <div class="stats-value" id="home-totalsaving"></div></div>
+    </div>
+  </div>
+  <div class="section-title">✧ 主選單 ✧</div>
+  <div class="card menu" id="home-menu"></div>
+</div>
+
+<!-- ========== 新增早午餐 ========== -->
+<div class="screen" id="sc-addbrunch">
+  <div class="back-bar"><button class="btn btn-back" onclick="go('sc-home')">‹ 返回主選單</button></div>
+  <div class="section-title">✧ <span id="brunch-date"></span> ✧</div>
+  <div class="card">
+    <div class="field"><div class="field-label">啟用固定報銷</div>
+      <div style="flex:1;text-align:right">今日是否啟用固定 70 元早午餐報銷？
+        <input type="checkbox" id="brunch-fixed" checked onchange="refreshBrunch()" style="width:18px;height:18px;accent-color:#FFC6D9"></div></div>
+    <div class="field"><div class="field-label">申請報銷金額</div>
+      <div style="flex:1;text-align:right"><span class="num-hero" id="brunch-claimed">70</span> 元</div></div>
+    <div class="field"><div class="field-label">實際消費金額</div>
+      <input type="number" id="brunch-actual" min="0" step="0.01" placeholder="請輸入早午餐實際消費金額" oninput="refreshBrunch()"></div>
+    <div class="field"><div class="field-label">項目備註</div>
+      <input type="text" id="brunch-note" placeholder="可留空"></div>
+    <div class="diff-box" id="brunch-diff"></div>
+    <button class="btn btn-primary" onclick="saveBrunch()">確認儲存 ♡</button>
+  </div>
+  <div class="muted" style="text-align:center">假日、放假可以選擇不啟用固定報銷</div>
+</div>
+
+<!-- ========== 新增其他開支 ========== -->
+<div class="screen" id="sc-addother">
+  <div class="back-bar"><button class="btn btn-back" onclick="go('sc-home')">‹ 返回主選單</button></div>
+  <div class="section-title">✧ <span id="other-date"></span> ✧</div>
+  <div class="card">
+    <div class="field"><div class="field-label">項目備註</div>
+      <input type="text" id="other-note" placeholder="例如：晚飯、文具"></div>
+    <div class="field"><div class="field-label">實際消費金額</div>
+      <input type="number" id="other-actual" min="0" step="0.01" placeholder="請輸入實際消費金額" oninput="refreshOther()"></div>
+    <div class="field"><div class="field-label">申請報銷金額</div>
+      <input type="number" id="other-claimed" min="0" step="0.01" placeholder="向母親申請報銷金額" oninput="refreshOther()"></div>
+    <div class="diff-box">✿ 本筆儲蓄差額（申請報銷金額 − 實際消費金額）：<span class="pos" id="other-diff">—</span></div>
+    <button class="btn btn-primary" onclick="saveOther()">確認儲存 ♡</button>
+  </div>
+</div>
+
+<!-- ========== 日曆總覽 ========== -->
+<div class="screen" id="sc-calendar">
+  <div class="back-bar"><button class="btn btn-back" onclick="go('sc-home')">‹ 返回主選單</button></div>
+  <div class="card">
+    <div class="cal-header">
+      <div class="cal-nav" onclick="calShift(-1)">‹</div>
+      <div class="cal-title">♡ <span id="cal-title"></span> ♡</div>
+      <div class="cal-nav" onclick="calShift(1)">›</div>
+    </div>
+    <div class="cal-week-row" id="cal-weekrow"></div>
+    <div id="cal-body"></div>
+    <div class="muted" style="text-align:center;margin-top:12px">✿ 有紀錄的日期會顯示小圓點，點選日期可檢視當日帳目 ✿</div>
+  </div>
+  <div class="section-title" id="cal-day-title"></div>
+  <div class="card" id="cal-day-list"></div>
+</div>
+
+<!-- ========== 未報銷清單 ========== -->
+<div class="screen" id="sc-unreimbursed">
+  <div class="back-bar"><button class="btn btn-back" onclick="go('sc-home')">‹ 返回主選單</button></div>
+  <div class="seg">
+    <div class="seg-item active" id="tab-todo" onclick="setTab('todo')">未報銷</div>
+    <div class="seg-item" id="tab-done" onclick="setTab('done')">母親已報銷</div>
+  </div>
+  <div class="card" id="unreimbursed-card"></div>
+  <div class="total-bar" id="unreimbursed-total" style="display:none"></div>
+</div>
+
+<!-- ========== 儲蓄總覽與每週報告 ========== -->
+<div class="screen" id="sc-savings">
+  <div class="back-bar"><button class="btn btn-back" onclick="go('sc-home')">‹ 返回主選單</button></div>
+  <div class="stats-card">
+    <div class="stats-deco d1">✿</div><div class="stats-deco d2">☆</div>
+    <div class="stats-label" style="font-size:12px;color:#9B8BA8;letter-spacing:2px">累計總儲蓄（所有週數合計）</div>
+    <div class="total-value" style="font-size:34px;font-weight:800;color:#8E6FBF;margin-top:6px" id="savings-total"></div>
+  </div>
+  <div class="section-title">✧ 每週統計與報告（點選週次查看每日明細）✧</div>
+  <div id="savings-list"></div>
+</div>
+
+<!-- ========== 標記已報銷 ========== -->
+<div class="screen" id="sc-mark">
+  <div class="back-bar"><button class="btn btn-back" onclick="go('sc-home')">‹ 返回主選單</button></div>
+  <div class="section-title">✧ 點選編號即可將該筆帳目標記為已報銷 ✧</div>
+  <div class="card" id="mark-list"></div>
+  <div class="total-bar" id="mark-total" style="display:none"></div>
+</div>
+
+<!-- ========== 修改或刪除 ========== -->
+<div class="screen" id="sc-manage">
+  <div class="back-bar"><button class="btn btn-back" onclick="go('sc-home')">‹ 返回主選單</button></div>
+  <div class="section-title">✧ 所有帳目紀錄 ✧</div>
+  <div class="card" id="manage-list"></div>
+  <button class="btn btn-danger" style="margin:10px 18px;width:calc(100% - 36px)" onclick="clearAll()">清空所有紀錄（刪除試驗記錄）</button>
+</div>
+
+<!-- ========== 編輯單筆 ========== -->
+<div class="screen" id="sc-edit">
+  <div class="back-bar"><button class="btn btn-back" onclick="renderManage();go('sc-manage')">‹ 返回</button></div>
+  <div class="card" id="edit-card"></div>
+</div>
+
+<!-- ========== 母親專屬畫面 ========== -->
+<div class="screen" id="sc-mother">
+  <div class="hero">
+    <div class="hero-deco d1">✿</div><div class="hero-deco d2">♡</div>
+    <div class="hero-title">母親專屬報銷清單</div>
+    <div class="hero-sub">✧ 未報銷紀錄　<span id="mother-count">0</span> 筆 ✧</div>
+  </div>
+  <div class="card" id="mother-card"></div>
+  <div class="total-bar" id="mother-total" style="display:none"></div>
+  <div style="padding:22px 18px 40px">
+    <button class="btn btn-primary" onclick="reimburseAll()">報銷以上未報銷項目 ♡</button>
+    <button class="btn btn-secondary" onclick="logout()">登出（返回身份選擇畫面）</button>
+  </div>
+</div>
+
+<script>
+/* ================= 核心資料層 ================= */
+const PASSWORD = '0319';      // 密碼寫死，預設 0319
+const FIXED = 70;             // 每日固定早午餐報銷金額
+const KEY = 'zq_records';
+let records = JSON.parse(localStorage.getItem(KEY) || '[]');
+let role = '';                // 'zhuoqi' | 'mother'
+let calY, calM, calSel;       // 日曆狀態
+let editId = null;            // 正在編輯的紀錄 id
+let unresTab = 'todo';        // 未報銷頁分頁
+let selectedWeek = '';        // 儲蓄頁展開的週次
+
+const pad = n => n < 10 ? '0' + n : '' + n;
+const r2 = n => Math.round((Number(n)||0) * 100) / 100;
+const fmt = n => { const v = r2(n); return Number.isInteger(v) ? String(v) : v.toFixed(2); };
+const todayStr = () => { const d = new Date(); return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); };
+const save = () => localStorage.setItem(KEY, JSON.stringify(records));
+const catLabel = c => c === 'brunch' ? '早午餐' : '其他';
+const noteText = r => r.note || (r.category === 'brunch' ? '固定報銷' : '');
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+/* ---- ISO 週次（週一為每週第一天） ---- */
+function weekInfo(dateStr) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const date = new Date(Date.UTC(y, m-1, d));
+  const day = date.getUTCDay() || 7;
+  date.setUTCDate(date.getUTCDate() + 4 - day);
+  const ys = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+  return { year: date.getUTCFullYear(),
+           week: Math.ceil((((date - ys) / 86400000) + 1) / 7) };
+}
+function weekKeyOf(dateStr) { const w = weekInfo(dateStr); return w.year + '-W' + pad(w.week); }
+function weekRange(weekKey) {
+  const [y, w] = weekKey.split('-W').map(Number);
+  const jan4 = new Date(Date.UTC(y, 0, 4));
+  const day = jan4.getUTCDay() || 7;
+  const mon1 = new Date(jan4); mon1.setUTCDate(jan4.getUTCDate() - (day-1));
+  const start = new Date(mon1); start.setUTCDate(mon1.getUTCDate() + (w-1)*7);
+  const end = new Date(start); end.setUTCDate(start.getUTCDate() + 6);
+  const f = d => d.getUTCFullYear()+'-'+pad(d.getUTCMonth()+1)+'-'+pad(d.getUTCDate());
+  return { start, end, text: f(start) + ' ~ ' + f(end) };
+}
+const weekLabel = wk => '第 ' + Number(wk.split('-W')[1]) + ' 週';
+
+/* ---- 儲蓄計算（嚴格依照規則） ---- */
+function saving(r) {
+  if (r.category === 'brunch') return r.fixed ? r2(FIXED - (r.actual||0)) : 0;
+  return r2((r.claimed||0) - (r.actual||0));
+}
+function weeks() {
+  const map = {};
+  records.forEach(r => {
+    if (!map[r.weekKey]) map[r.weekKey] = { brunch:0, other:0 };
+    const s = saving(r);
+    if (r.category === 'brunch') map[r.weekKey].brunch = r2(map[r.weekKey].brunch + s);
+    else map[r.weekKey].other = r2(map[r.weekKey].other + s);
+  });
+  return Object.keys(map).sort().map(k => ({
+    weekKey: k, label: weekLabel(k), range: weekRange(k).text,
+    brunch: map[k].brunch, other: map[k].other, total: r2(map[k].brunch + map[k].other)
+  }));
+}
+const totalSaving = () => r2(weeks().reduce((s,w) => s + w.total, 0));
+const curWeekKey = () => weekKeyOf(todayStr());
+const curWeekSaving = () => { const w = weeks().find(x => x.weekKey === curWeekKey()); return w ? w.total : 0; };
+const unreimbursed = () => records.filter(r => !r.reimbursed)
+  .sort((a,b) => (a.date+a.createdAt < b.date+b.createdAt ? -1 : 1));
+const reimbursed = () => records.filter(r => r.reimbursed);
+const claimTotal = list => r2(list.reduce((s,r) => s + (r.claimed||0), 0));
+function dayRecords(ds) { return records.filter(r => r.date === ds); }
+function daySaving(ds) { return r2(dayRecords(ds).reduce((s,r) => s + saving(r), 0)); }
+function weekDaily(weekKey) {
+  const out = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(weekRange(weekKey).start); d.setUTCDate(d.getUTCDate() + i);
+    const ds = d.getUTCFullYear()+'-'+pad(d.getUTCMonth()+1)+'-'+pad(d.getUTCDate());
+    const list = dayRecords(ds);
+    if (list.length) {
+      const b = r2(list.filter(r=>r.category==='brunch').reduce((s,r)=>s+saving(r),0));
+      const o = r2(list.filter(r=>r.category==='other').reduce((s,r)=>s+saving(r),0));
+      out.push({ date: ds, brunch: b, other: o, total: r2(b+o) });
+    }
+  }
+  return out;
+}
+
+/* ================= 畫面切換與權限 ================= */
+function go(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  window.scrollTo(0, 0);
+}
+function guardZhuoqi() { if (role !== 'zhuoqi') { go('sc-login'); return false; } return true; }
+function toast(msg, warn) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = 'toast' + (warn ? ' warn' : ''); t.style.display = 'block';
+  clearTimeout(t._tm); t._tm = setTimeout(() => t.style.display = 'none', 1800);
+}
+
+/* ---- 登入 ---- */
+function askPwd() {
+  document.getElementById('pwd-card').style.display = 'block';
+  document.getElementById('pwd-input').value = '';
+  document.getElementById('pwd-input').focus();
+}
+document.getElementById('pwd-input').addEventListener('keydown', e => { if (e.key === 'Enter') confirmPwd(); });
+function confirmPwd() {
+  if (document.getElementById('pwd-input').value === PASSWORD) {
+    role = 'zhuoqi'; renderHome(); go('sc-home');
+  } else {
+    toast('密碼錯誤', true);
+    document.getElementById('pwd-card').style.display = 'none';
+  }
+}
+function loginMother() { role = 'mother'; renderMother(); go('sc-mother'); }
+function logout() { if (confirm('確定要登出並返回身份選擇畫面嗎？')) { role = ''; go('sc-login'); } }
+
+/* ================= 卓淇主選單 ================= */
+const MENU = [
+  ['新增今日早午餐紀錄', 'sc-addbrunch', 'prepBrunch'],
+  ['新增其他開支紀錄', 'sc-addother', 'prepOther'],
+  ['日曆總覽（檢視每日帳目）', 'sc-calendar', 'prepCal'],
+  ['檢視未報銷清單', 'sc-unreimbursed', 'renderUnreimbursed'],
+  ['儲蓄總覽與每週報告', 'sc-savings', 'renderSavings'],
+  ['標記帳目為已報銷', 'sc-mark', 'renderMark'],
+  ['修改或者刪除帳目紀錄', 'sc-manage', 'renderManage'],
+];
+function renderHome() {
+  if (!guardZhuoqi()) return;
+  document.getElementById('home-date').textContent = '今日：' + todayStr();
+  document.getElementById('home-weeklabel').textContent = weekLabel(curWeekKey()) + '累計儲蓄';
+  document.getElementById('home-weeksaving').textContent = fmt(curWeekSaving());
+  document.getElementById('home-totalsaving').textContent = fmt(totalSaving());
+  let html = '';
+  MENU.forEach((m, i) => {
+    html += `<div class="menu-item" onclick="${m[2]}();go('${m[1]}')">
+      <div class="menu-num mc${i}">${i+1}</div><div class="menu-text">${m[0]}</div><div class="menu-arrow">›</div></div>`;
+  });
+  html += `<div class="menu-item" onclick="logout()">
+    <div class="menu-num mc7">8</div><div class="menu-text">登出（返回身份選擇畫面）</div></div>`;
+  document.getElementById('home-menu').innerHTML = html;
+}
+
+/* ================= 功能1：新增早午餐 ================= */
+function prepBrunch() {
+  document.getElementById('brunch-date').textContent = todayStr();
+  document.getElementById('brunch-fixed').checked = true;
+  document.getElementById('brunch-actual').value = '';
+  document.getElementById('brunch-note').value = '';
+  refreshBrunch();
+}
+function refreshBrunch() {
+  const on = document.getElementById('brunch-fixed').checked;
+  const actual = Number(document.getElementById('brunch-actual').value) || 0;
+  document.getElementById('brunch-claimed').textContent = on ? '70' : '0';
+  document.getElementById('brunch-diff').innerHTML = on
+    ? `✿ 本筆儲蓄差額（70 − 實際消費金額）：<span class="pos">${fmt(FIXED - actual)}</span>`
+    : `<span class="muted">✿ 未啟用固定報銷，本筆不計算早午餐儲蓄</span>`;
+}
+function saveBrunch() {
+  const fixed = document.getElementById('brunch-fixed').checked;
+  const actual = Number(document.getElementById('brunch-actual').value);
+  if (document.getElementById('brunch-actual').value === '' || isNaN(actual) || actual < 0)
+    return toast('請輸入有效的早午餐實際消費金額', true);
+  records.push({
+    id: 'r' + Date.now() + Math.floor(Math.random()*9999),
+    date: todayStr(), category: 'brunch', fixed,
+    actual: r2(actual), claimed: fixed ? FIXED : 0,
+    note: document.getElementById('brunch-note').value.trim(),
+    reimbursed: false, createdAt: Date.now()
+  });
+  records[records.length-1].weekKey = weekKeyOf(todayStr());
+  save();
+  const s = saving(records[records.length-1]);
+  alert(fixed ? '儲存成功 ♡\n本筆產生儲蓄差額：' + fmt(s) + ' 元'
+              : '儲存成功 ♡\n未啟用固定報銷，本筆不計算早午餐儲蓄');
+  renderHome(); go('sc-home');
+}
+
+/* ================= 功能2：新增其他開支 ================= */
+function prepOther() {
+  document.getElementById('other-date').textContent = todayStr();
+  document.getElementById('other-note').value = '';
+  document.getElementById('other-actual').value = '';
+  document.getElementById('other-claimed').value = '';
+  document.getElementById('other-diff').textContent = '—';
+}
+function refreshOther() {
+  const a = document.getElementById('other-actual').value;
+  const c = document.getElementById('other-claimed').value;
+  document.getElementById('other-diff').textContent =
+    (a === '' || c === '') ? '—' : fmt(r2(Number(c) - Number(a)));
+}
+function saveOther() {
+  const note = document.getElementById('other-note').value.trim();
+  const actual = Number(document.getElementById('other-actual').value);
+  const claimed = Number(document.getElementById('other-claimed').value);
+  if (!note) return toast('請輸入項目備註（例如：晚飯、文具）', true);
+  if (document.getElementById('other-actual').value === '' || isNaN(actual) || actual < 0)
+    return toast('請輸入有效的實際消費金額', true);
+  if (document.getElementById('other-claimed').value === '' || isNaN(claimed) || claimed < 0)
+    return toast('請輸入有效的申請報銷金額', true);
+  const item = {
+    id: 'r' + Date.now() + Math.floor(Math.random()*9999),
+    date: todayStr(), category: 'other', fixed: false,
+    actual: r2(actual), claimed: r2(claimed), note,
+    reimbursed: false, createdAt: Date.now(), weekKey: weekKeyOf(todayStr())
+  };
+  records.push(item); save();
+  alert('儲存成功 ♡\n本筆產生儲蓄差額：' + fmt(saving(item)) + ' 元');
+  renderHome(); go('sc-home');
+}
+
+/* ================= 功能3：日曆總覽 ================= */
+function prepCal() {
+  const now = new Date();
+  calY = now.getFullYear(); calM = now.getMonth(); calSel = todayStr();
+  renderCal();
+}
+function calShift(n) {
+  calM += n;
+  if (calM < 0) { calM = 11; calY--; }
+  if (calM > 11) { calM = 0; calY++; }
+  renderCal();
+}
+function renderCal() {
+  const wk = ['一','二','三','四','五','六','日'];
+  document.getElementById('cal-title').textContent = calY + ' 年 ' + (calM+1) + ' 月';
+  document.getElementById('cal-weekrow').innerHTML = wk.map(d => `<div class="cal-week-cell">${d}</div>`).join('');
+  const recordDates = {}; records.forEach(r => { if (r.date.startsWith(calY+'-'+pad(calM+1)+'-')) recordDates[r.date] = 1; });
+  const first = new Date(calY, calM, 1);
+  const days = new Date(calY, calM+1, 0).getDate();
+  let offset = first.getDay() - 1; if (offset < 0) offset = 6;
+  const cells = [];
+  for (let i = 0; i < offset; i++) cells.push(null);
+  for (let d = 1; d <= days; d++) {
+    const ds = calY+'-'+pad(calM+1)+'-'+pad(d);
+    cells.push({ d, ds, has: !!recordDates[ds], today: ds === todayStr(), sel: ds === calSel });
+  }
+  while (cells.length % 7) cells.push(null);
+  let html = '';
+  for (let i = 0; i < cells.length; i += 7) {
+    html += '<div class="cal-row">' + cells.slice(i, i+7).map(c => {
+      if (!c) return '<div class="cal-cell"></div>';
+      return `<div class="cal-cell${c.sel?' selected':''}${c.today?' today':''}" onclick="pickDay('${c.ds}')">
+        <div class="cal-day">${c.d}</div><div class="cal-dot${c.has?' show':''}"></div></div>`;
+    }).join('') + '</div>';
+  }
+  document.getElementById('cal-body').innerHTML = html;
+  renderCalDay();
+}
+function pickDay(ds) { calSel = ds; renderCal(); }
+function renderCalDay() {
+  const list = dayRecords(calSel);
+  document.getElementById('cal-day-title').textContent =
+    `✧ ${calSel} 的帳目（當日儲蓄：${fmt(daySaving(calSel))} 元）✧`;
+  let html;
+  if (!list.length) html = '<div class="empty">該日沒有帳目紀錄 ♡</div>';
+  else html = list.map(r => `
+    <div class="cell">
+      <div class="row">
+        <div><span class="tag ${r.category==='brunch'?'tag-brunch':'tag-other'}">${catLabel(r.category)}</span>
+          <span style="margin-left:8px;color:#6B5B7A">${esc(noteText(r))}</span></div>
+        <span class="tag ${r.reimbursed?'tag-done':'tag-todo'}">${r.reimbursed?'已報銷':'未報銷'}</span>
+      </div>
+      <div class="row" style="margin-top:6px;font-size:12px;color:#9B8BA8">
+        <span>實際消費：${fmt(r.actual)} 元</span><span>申請報銷：${fmt(r.claimed)} 元</span>
+        <span class="${saving(r)>=0?'pos':'neg'}">差額：${fmt(saving(r))} 元</span>
+      </div>
+    </div>`).join('');
+  document.getElementById('cal-day-list').innerHTML = html;
+}
+
+/* ================= 功能4：未報銷清單（含母親已報銷分頁） ================= */
+function setTab(t) {
+  unresTab = t;
+  document.getElementById('tab-todo').className = 'seg-item' + (t==='todo' ? ' active' : '');
+  document.getElementById('tab-done').className = 'seg-item' + (t==='done' ? ' active' : '');
+  renderUnreimbursed();
+}
+function renderUnreimbursed() {
+  if (!guardZhuoqi()) return;
+  const list = unresTab === 'todo' ? unreimbursed() : reimbursed();
+  const card = document.getElementById('unreimbursed-card');
+  const bar = document.getElementById('unreimbursed-total');
+  if (!list.length) {
+    card.innerHTML = `<div class="empty">${unresTab==='todo' ? '目前沒有未報銷的紀錄' : '母親尚未報銷任何項目'} ♡</div>`;
+    bar.style.display = 'none'; return;
+  }
+  card.innerHTML = `<div class="list-head"><span>日期</span><span>類別</span><span>備註</span><span>狀態</span><span>申請報銷</span></div>` +
+    list.map(r => `<div class="list-row"><span>${r.date}</span><span>${catLabel(r.category)}</span>
+      <span>${esc(noteText(r))}</span>
+      <span class="tag ${r.reimbursed?'tag-done':'tag-todo'}">${r.reimbursed?'母親已報銷':'未報銷'}</span>
+      <span class="strong" style="color:#8E6FBF;font-weight:700">${fmt(r.claimed)}</span></div>`).join('');
+  bar.style.display = 'block';
+  bar.innerHTML = unresTab === 'todo'
+    ? `<div class="row"><span>未報銷總計</span><span class="total-num">${fmt(claimTotal(list))} 元</span></div>`
+    : `<div class="row"><span>母親已報銷合計</span><span class="total-done">${fmt(claimTotal(list))} 元</span></div>`;
+}
+
+/* ================= 功能5：儲蓄總覽與每週報告 ================= */
+function renderSavings() {
+  if (!guardZhuoqi()) return;
+  document.getElementById('savings-total').textContent = fmt(totalSaving()) + ' 元';
+  const ws = weeks();
+  const box = document.getElementById('savings-list');
+  if (!ws.length) { box.innerHTML = '<div class="empty">尚未有任何儲蓄紀錄 ♡</div>'; return; }
+  box.innerHTML = ws.map((w, i) => {
+    let cmp;
+    if (i === 0) cmp = '<span class="muted">（首週，無上週比較）</span>';
+    else {
+      const diff = r2(w.total - ws[i-1].total);
+      cmp = diff > 0 ? `<span class="pos">相較上週，本週儲蓄增加 ${fmt(diff)} 元</span>`
+           : diff < 0 ? `<span class="neg">相較上週，本週儲蓄減少 ${fmt(-diff)} 元</span>`
+           : '<span class="muted">與上週儲蓄相同</span>';
+    }
+    let detail = '';
+    if (selectedWeek === w.weekKey) {
+      const dd = weekDaily(w.weekKey);
+      detail = dd.length
+        ? `<div style="margin-top:12px;border-top:1px dashed #F3DCF0;padding-top:10px">
+            <div style="font-weight:800;color:#6B5B7A;margin-bottom:6px">${w.label} 每日儲蓄明細</div>` +
+          dd.map(d => `<div class="detail-row"><span style="width:95px;font-weight:700;color:#6B5B7A">${d.date}</span>
+            <span class="muted">早午餐 ${fmt(d.brunch)} ／ 其他 ${fmt(d.other)}</span>
+            <span class="${d.total>=0?'pos':'neg'}">${fmt(d.total)}</span></div>`).join('') + '</div>'
+        : '<div class="muted" style="text-align:center;padding:12px 0 4px">該週暫無帳目紀錄</div>';
+    }
+    return `<div class="card week-card" onclick="toggleWeek('${w.weekKey}')">
+      <div class="row"><div style="font-size:17px;font-weight:800;color:#6B5B7A">${w.label}
+        <span class="muted" style="font-size:11px;font-weight:400;margin-left:6px">${w.range}</span>
+        ${w.weekKey === curWeekKey() ? '<span class="tag tag-done" style="margin-left:6px">本週</span>' : ''}</div>
+        <div class="${w.total>=0?'pos':'neg'}" style="font-size:19px">${fmt(w.total)} 元</div></div>
+      <div class="row" style="margin-top:8px;font-size:13px">
+        <span>✿ 早午餐儲蓄小計：<span class="${w.brunch>=0?'pos':'neg'}">${fmt(w.brunch)}</span></span>
+        <span>♡ 其他開支差額小計：<span class="${w.other>=0?'pos':'neg'}">${fmt(w.other)}</span></span></div>
+      <div class="week-report"><div class="report-title">✧ 每週報告 ✧</div>${cmp}</div>${detail}</div>`;
+  }).join('');
+}
+function toggleWeek(wk) { selectedWeek = selectedWeek === wk ? '' : wk; renderSavings(); }
+
+/* ================= 功能6：標記已報銷 ================= */
+function renderMark() {
+  if (!guardZhuoqi()) return;
+  const list = unreimbursed();
+  const card = document.getElementById('mark-list');
+  const bar = document.getElementById('mark-total');
+  if (!list.length) {
+    card.innerHTML = '<div class="empty">目前沒有未報銷的帳目 ♡</div>';
+    bar.style.display = 'none'; return;
+  }
+  card.innerHTML = list.map((r, i) => `
+    <div class="cell" style="cursor:pointer" onclick="markOne('${r.id}',${i+1})">
+      <div class="row">
+        <div style="display:flex;align-items:center">
+          <div class="menu-num mc0" style="width:30px;height:30px;font-size:13px;margin-right:14px">${i+1}</div>
+          <div><span class="tag ${r.category==='brunch'?'tag-brunch':'tag-other'}">${catLabel(r.category)}</span>
+            <span style="margin-left:8px;color:#6B5B7A">${esc(noteText(r))}</span>
+            <div class="muted" style="margin-top:2px">${r.date}　${weekLabel(r.weekKey)}</div></div>
+        </div>
+        <div style="font-weight:800;font-size:16px;color:#8E6FBF">${fmt(r.claimed)} 元</div>
+      </div>
+    </div>`).join('');
+  bar.style.display = 'block';
+  bar.innerHTML = `<div class="row"><span>未報銷總計（標記後不再計入）</span>
+    <span class="total-num">${fmt(claimTotal(list))} 元</span></div>`;
+}
+function markOne(id, no) {
+  if (!confirm(`確定將編號 ${no} 的帳目標記為「已報銷」嗎？\n已報銷的帳目不會再計入未報銷總額，但仍保留用於儲蓄與週報統計。`)) return;
+  const r = records.find(x => x.id === id);
+  if (r) { r.reimbursed = true; save(); toast('已標記為已報銷'); renderMark(); }
+}
+
+/* ================= 功能7：修改或刪除 + 清空 ================= */
+function renderManage() {
+  if (!guardZhuoqi()) return;
+  const list = records.slice().sort((a,b) => a.date < b.date ? -1 : a.date > b.date ? 1 : a.createdAt - b.createdAt);
+  const card = document.getElementById('manage-list');
+  if (!list.length) { card.innerHTML = '<div class="empty">目前沒有任何帳目紀錄 ♡</div>'; return; }
+  card.innerHTML = list.map((r, i) => `
+    <div class="cell">
+      <div class="row">
+        <div style="flex:1">
+          <div><span class="muted" style="font-weight:800">${i+1}.</span>
+            <span class="tag ${r.category==='brunch'?'tag-brunch':'tag-other'}">${catLabel(r.category)}</span>
+            <span style="margin-left:8px;color:#6B5B7A">${esc(noteText(r))}</span></div>
+          <div class="muted" style="margin-top:4px;display:flex;align-items:center">${r.date}　${weekLabel(r.weekKey)}
+            <span class="tag ${r.reimbursed?'tag-done':'tag-todo'}" style="margin-left:8px">${r.reimbursed?'母親已報銷':'未報銷'}</span></div>
+        </div>
+        <div style="text-align:right;font-size:12px;color:#9B8BA8">
+          <div>實際 ${fmt(r.actual)}　報銷 ${fmt(r.claimed)}</div>
+          <div class="${saving(r)>=0?'pos':'neg'}">差額 ${fmt(saving(r))}</div></div>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <button class="btn btn-secondary" style="width:47%;margin:0;padding:8px 0;font-size:13px" onclick="openEdit('${r.id}')">✎ 修改</button>
+        <button class="btn btn-danger" style="width:47%;margin:0;padding:8px 0;font-size:13px" onclick="delOne('${r.id}',${i+1})">✕ 刪除</button>
+      </div>
+    </div>`).join('');
+}
+function delOne(id, no) {
+  if (!confirm(`確定刪除編號 ${no} 的紀錄嗎？\n刪除後系統會自動重新計算相關週的儲蓄總額以及總儲蓄。`)) return;
+  records = records.filter(r => r.id !== id); save();
+  toast('已刪除'); renderManage();
+}
+function openEdit(id) {
+  editId = id;
+  const r = records.find(x => x.id === id);
+  if (!r) return;
+  const isBrunch = r.category === 'brunch';
+  document.getElementById('edit-card').innerHTML = `
+    <div class="card-title">✎ 修改帳目紀錄</div>
+    <div class="field"><div class="field-label">日期</div>
+      <input type="date" id="ed-date" value="${r.date}"></div>
+    <div class="field"><div class="field-label">帳目類別</div>
+      <div style="flex:1;text-align:right">${catLabel(r.category)}</div></div>
+    ${isBrunch ? `<div class="field"><div class="field-label">啟用固定報銷</div>
+      <div style="flex:1;text-align:right"><input type="checkbox" id="ed-fixed" ${r.fixed?'checked':''}
+        style="width:18px;height:18px;accent-color:#FFC6D9" onchange="refreshEdit()"></div></div>` : ''}
+    <div class="field"><div class="field-label">申請報銷金額</div>
+      ${isBrunch ? '<div style="flex:1;text-align:right"><span class="num-hero" id="ed-claimed-fixed">70</span></div>'
+        : `<input type="number" id="ed-claimed" min="0" step="0.01" value="${r.claimed}" oninput="refreshEdit()">`}</div>
+    <div class="field"><div class="field-label">實際消費金額</div>
+      <input type="number" id="ed-actual" min="0" step="0.01" value="${r.actual}" oninput="refreshEdit()"></div>
+    <div class="field"><div class="field-label">項目備註</div>
+      <input type="text" id="ed-note" value="${esc(r.note)}"></div>
+    <div class="diff-box">✿ 本筆儲蓄差額：<span class="pos" id="ed-diff"></span></div>
+    <button class="btn btn-primary" onclick="saveEdit()">儲存修改 ♡</button>`;
+  refreshEdit();
+  go('sc-edit');
+}
+function refreshEdit() {
+  const r = records.find(x => x.id === editId);
+  const actual = Number(document.getElementById('ed-actual').value) || 0;
+  let diff;
+  if (r.category === 'brunch') {
+    const fixed = document.getElementById('ed-fixed').checked;
+    document.getElementById('ed-claimed-fixed').textContent = fixed ? '70' : '0';
+    diff = fixed ? r2(FIXED - actual) : 0;
+  } else {
+    const claimed = Number(document.getElementById('ed-claimed').value) || 0;
+    diff = r2(claimed - actual);
+  }
+  document.getElementById('ed-diff').textContent = fmt(diff);
+}
+function saveEdit() {
+  const r = records.find(x => x.id === editId);
+  const date = document.getElementById('ed-date').value;
+  const actual = Number(document.getElementById('ed-actual').value);
+  if (!date) return toast('請選擇日期', true);
+  if (document.getElementById('ed-actual').value === '' || isNaN(actual) || actual < 0)
+    return toast('請輸入有效的實際消費金額', true);
+  r.date = date;
+  r.actual = r2(actual);
+  if (r.category === 'brunch') {
+    r.fixed = document.getElementById('ed-fixed').checked;
+    r.claimed = r.fixed ? FIXED : 0;
+  } else {
+    const claimed = Number(document.getElementById('ed-claimed').value);
+    if (document.getElementById('ed-claimed').value === '' || isNaN(claimed) || claimed < 0)
+      return toast('請輸入有效的申請報銷金額', true);
+    r.claimed = r2(claimed);
+  }
+  r.note = document.getElementById('ed-note').value.trim();
+  r.weekKey = weekKeyOf(date);   // 自動重新歸入週次、重算儲蓄
+  save();
+  alert('修改成功 ♡\n系統已自動重新計算相關週的儲蓄總額以及總儲蓄');
+  renderManage(); go('sc-manage');
+}
+function clearAll() {
+  if (!records.length) return toast('目前沒有任何紀錄', true);
+  if (!confirm(`確定清空全部 ${records.length} 筆紀錄嗎？此操作無法復原。`)) return;
+  if (!confirm('所有帳目、報銷狀態、儲蓄統計將全部被刪除，確定嗎？')) return;
+  records = []; save();
+  toast('已清空所有紀錄'); renderManage();
+}
+
+/* ================= 母親專屬畫面（只顯示申請報銷金額） ================= */
+function renderMother() {
+  const list = unreimbursed();
+  document.getElementById('mother-count').textContent = list.length;
+  const card = document.getElementById('mother-card');
+  const bar = document.getElementById('mother-total');
+  if (!list.length) { card.innerHTML = '<div class="empty">全部項目已經報銷完成 ♡</div>'; bar.style.display = 'none'; return; }
+  card.innerHTML = `<div class="list-head"><span>日期</span><span>類別</span><span>備註</span><span style="width:100px">申請報銷金額</span></div>` +
+    list.map(r => `<div class="list-row"><span>${r.date}</span><span>${catLabel(r.category)}</span>
+      <span>${esc(noteText(r))}</span>
+      <span style="width:100px;color:#8E6FBF;font-weight:700">${fmt(r.claimed)}</span></div>`).join('');
+  bar.style.display = 'block';
+  bar.innerHTML = `<div class="row"><span>未報銷總計</span><span class="total-num">${fmt(claimTotal(list))} 元</span></div>`;
+}
+function reimburseAll() {
+  const list = unreimbursed();
+  if (!list.length) return toast('目前沒有未報銷項目', true);
+  if (!confirm(`確定報銷以上全部 ${list.length} 筆未報銷項目（合計 ${fmt(claimTotal(list))} 元）嗎？`)) return;
+  let n = 0;
+  records.forEach(r => { if (!r.reimbursed) { r.reimbursed = true; n++; } });
+  save();
+  toast('已報銷 ' + n + ' 筆');
+  renderMother();
+}
+
+/* 啟動：進入身份選擇畫面 */
+go('sc-login');
+</script>
+</body>
+</html>
