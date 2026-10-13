@@ -203,8 +203,12 @@ body { background:#FFF7FB; color:#7A6B78; font-size:15px; line-height:1.7; lette
 <!-- ========== 新增早午餐 ========== -->
 <div class="screen" id="sc-addbrunch">
   <div class="back-bar"><button class="btn btn-back" onclick="go('sc-home')">‹ 返回主選單</button></div>
-  <div class="section-title">✧ <span id="brunch-date"></span> ✧</div>
+  <div class="section-title">✧ 填寫早午餐紀錄 ✧</div>
   <div class="card">
+    <!-- 新增：日期選擇欄位 -->
+    <div class="field"><div class="field-label">消費日期</div>
+      <input type="date" id="brunch-date"></div>
+      
     <div class="field"><div class="field-label">啟用固定報銷</div>
       <div style="flex:1;text-align:right">今日是否啟用固定 70 元早午餐報銷？
         <input type="checkbox" id="brunch-fixed" checked onchange="refreshBrunch()" style="width:18px;height:18px;accent-color:#FFC6D9"></div></div>
@@ -223,8 +227,12 @@ body { background:#FFF7FB; color:#7A6B78; font-size:15px; line-height:1.7; lette
 <!-- ========== 新增其他開支 ========== -->
 <div class="screen" id="sc-addother">
   <div class="back-bar"><button class="btn btn-back" onclick="go('sc-home')">‹ 返回主選單</button></div>
-  <div class="section-title">✧ <span id="other-date"></span> ✧</div>
+  <div class="section-title">✧ 填寫其他開支紀錄 ✧</div>
   <div class="card">
+    <!-- 新增：日期選擇欄位 -->
+    <div class="field"><div class="field-label">消費日期</div>
+      <input type="date" id="other-date"></div>
+      
     <div class="field"><div class="field-label">項目備註</div>
       <input type="text" id="other-note" placeholder="例如：晚飯、文具"></div>
     <div class="field"><div class="field-label">實際消費金額</div>
@@ -289,6 +297,18 @@ body { background:#FFF7FB; color:#7A6B78; font-size:15px; line-height:1.7; lette
   <div class="back-bar"><button class="btn btn-back" onclick="go('sc-home')">‹ 返回主選單</button></div>
   <div class="section-title">✧ 所有帳目紀錄 ✧</div>
   <div class="card" id="manage-list"></div>
+  
+  <!-- 新增：備份與還原功能 -->
+  <div class="card" style="background:#FFF7FB; border:2px dashed #D4BFFF;">
+    <div class="card-title" style="font-size:16px;">✧ 資料安全 (備份與還原)</div>
+    <div class="muted" style="margin-bottom:12px;">若清除了瀏覽器暫存或更換設備，資料可能會遺失。建議定期「匯出備份」，有需要時再「匯入」即可恢復。</div>
+    <div style="display:flex; gap:10px;">
+      <button class="btn btn-primary" style="margin-top:0; flex:1; font-size:13px;" onclick="exportData()">📥 匯出備份</button>
+      <button class="btn btn-secondary" style="margin-top:0; flex:1; font-size:13px;" onclick="document.getElementById('import-file').click()">📤 匯入資料</button>
+      <input type="file" id="import-file" accept=".json" style="display:none" onchange="importData(event)">
+    </div>
+  </div>
+  
   <button class="btn btn-danger" style="margin:10px 18px;width:calc(100% - 36px)" onclick="clearAll()">清空所有紀錄（刪除試驗記錄）</button>
 </div>
 
@@ -303,7 +323,7 @@ body { background:#FFF7FB; color:#7A6B78; font-size:15px; line-height:1.7; lette
   <div class="hero">
     <div class="hero-deco d1">✿</div><div class="hero-deco d2">♡</div>
     <div class="hero-title">母親專屬報銷清單</div>
-    <div class="hero-sub">✧ 未報銷紀錄　<span id="mother-count">0</span> 筆 ✧</div>
+    <div class="hero-sub">✧ 未報銷紀錄 <span id="mother-count">0</span> 筆 ✧</div>
   </div>
   <div class="card" id="mother-card"></div>
   <div class="total-bar" id="mother-total" style="display:none"></div>
@@ -458,7 +478,8 @@ function renderHome() {
 
 /* ================= 功能1：新增早午餐 ================= */
 function prepBrunch() {
-  document.getElementById('brunch-date').textContent = todayStr();
+  // 設定日期預設為今日
+  document.getElementById('brunch-date').value = todayStr();
   document.getElementById('brunch-fixed').checked = true;
   document.getElementById('brunch-actual').value = '';
   document.getElementById('brunch-note').value = '';
@@ -473,18 +494,21 @@ function refreshBrunch() {
     : `<span class="muted">✿ 未啟用固定報銷，本筆不計算早午餐儲蓄</span>`;
 }
 function saveBrunch() {
+  const selectedDate = document.getElementById('brunch-date').value || todayStr();
   const fixed = document.getElementById('brunch-fixed').checked;
   const actual = Number(document.getElementById('brunch-actual').value);
+  
   if (document.getElementById('brunch-actual').value === '' || isNaN(actual) || actual < 0)
     return toast('請輸入有效的早午餐實際消費金額', true);
+    
   records.push({
     id: 'r' + Date.now() + Math.floor(Math.random()*9999),
-    date: todayStr(), category: 'brunch', fixed,
+    date: selectedDate, category: 'brunch', fixed,
     actual: r2(actual), claimed: fixed ? FIXED : 0,
     note: document.getElementById('brunch-note').value.trim(),
     reimbursed: false, createdAt: Date.now()
   });
-  records[records.length-1].weekKey = weekKeyOf(todayStr());
+  records[records.length-1].weekKey = weekKeyOf(selectedDate);
   save();
   const s = saving(records[records.length-1]);
   alert(fixed ? '儲存成功 ♡\n本筆產生儲蓄差額：' + fmt(s) + ' 元'
@@ -494,7 +518,8 @@ function saveBrunch() {
 
 /* ================= 功能2：新增其他開支 ================= */
 function prepOther() {
-  document.getElementById('other-date').textContent = todayStr();
+  // 設定日期預設為今日
+  document.getElementById('other-date').value = todayStr();
   document.getElementById('other-note').value = '';
   document.getElementById('other-actual').value = '';
   document.getElementById('other-claimed').value = '';
@@ -507,19 +532,22 @@ function refreshOther() {
     (a === '' || c === '') ? '—' : fmt(r2(Number(c) - Number(a)));
 }
 function saveOther() {
+  const selectedDate = document.getElementById('other-date').value || todayStr();
   const note = document.getElementById('other-note').value.trim();
   const actual = Number(document.getElementById('other-actual').value);
   const claimed = Number(document.getElementById('other-claimed').value);
+  
   if (!note) return toast('請輸入項目備註（例如：晚飯、文具）', true);
   if (document.getElementById('other-actual').value === '' || isNaN(actual) || actual < 0)
     return toast('請輸入有效的實際消費金額', true);
   if (document.getElementById('other-claimed').value === '' || isNaN(claimed) || claimed < 0)
     return toast('請輸入有效的申請報銷金額', true);
+    
   const item = {
     id: 'r' + Date.now() + Math.floor(Math.random()*9999),
-    date: todayStr(), category: 'other', fixed: false,
+    date: selectedDate, category: 'other', fixed: false,
     actual: r2(actual), claimed: r2(claimed), note,
-    reimbursed: false, createdAt: Date.now(), weekKey: weekKeyOf(todayStr())
+    reimbursed: false, createdAt: Date.now(), weekKey: weekKeyOf(selectedDate)
   };
   records.push(item); save();
   alert('儲存成功 ♡\n本筆產生儲蓄差額：' + fmt(saving(item)) + ' 元');
@@ -670,7 +698,7 @@ function renderMark() {
           <div class="menu-num mc0" style="width:30px;height:30px;font-size:13px;margin-right:14px">${i+1}</div>
           <div><span class="tag ${r.category==='brunch'?'tag-brunch':'tag-other'}">${catLabel(r.category)}</span>
             <span style="margin-left:8px;color:#6B5B7A">${esc(noteText(r))}</span>
-            <div class="muted" style="margin-top:2px">${r.date}　${weekLabel(r.weekKey)}</div></div>
+            <div class="muted" style="margin-top:2px">${r.date} ${weekLabel(r.weekKey)}</div></div>
         </div>
         <div style="font-weight:800;font-size:16px;color:#8E6FBF">${fmt(r.claimed)} 元</div>
       </div>
@@ -685,7 +713,7 @@ function markOne(id, no) {
   if (r) { r.reimbursed = true; save(); toast('已標記為已報銷'); renderMark(); }
 }
 
-/* ================= 功能7：修改或刪除 + 清空 ================= */
+/* ================= 功能7：修改或刪除 + 備份還原 ================= */
 function renderManage() {
   if (!guardZhuoqi()) return;
   const list = records.slice().sort((a,b) => a.date < b.date ? -1 : a.date > b.date ? 1 : a.createdAt - b.createdAt);
@@ -698,11 +726,11 @@ function renderManage() {
           <div><span class="muted" style="font-weight:800">${i+1}.</span>
             <span class="tag ${r.category==='brunch'?'tag-brunch':'tag-other'}">${catLabel(r.category)}</span>
             <span style="margin-left:8px;color:#6B5B7A">${esc(noteText(r))}</span></div>
-          <div class="muted" style="margin-top:4px;display:flex;align-items:center">${r.date}　${weekLabel(r.weekKey)}
+          <div class="muted" style="margin-top:4px;display:flex;align-items:center">${r.date} ${weekLabel(r.weekKey)}
             <span class="tag ${r.reimbursed?'tag-done':'tag-todo'}" style="margin-left:8px">${r.reimbursed?'母親已報銷':'未報銷'}</span></div>
         </div>
         <div style="text-align:right;font-size:12px;color:#9B8BA8">
-          <div>實際 ${fmt(r.actual)}　報銷 ${fmt(r.claimed)}</div>
+          <div>實際 ${fmt(r.actual)} 報銷 ${fmt(r.claimed)}</div>
           <div class="${saving(r)>=0?'pos':'neg'}">差額 ${fmt(saving(r))}</div></div>
       </div>
       <div class="row" style="margin-top:8px">
@@ -786,6 +814,38 @@ function clearAll() {
   if (!confirm('所有帳目、報銷狀態、儲蓄統計將全部被刪除，確定嗎？')) return;
   records = []; save();
   toast('已清空所有紀錄'); renderManage();
+}
+
+/* ================= 匯出與匯入資料 (解決失憶問題) ================= */
+function exportData() {
+  const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(records));
+  const dlAnchorElem = document.createElement('a');
+  dlAnchorElem.setAttribute("href", dataStr);
+  dlAnchorElem.setAttribute("download", "zq_records_backup_" + todayStr() + ".json");
+  dlAnchorElem.click();
+}
+function importData(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const imported = JSON.parse(e.target.result);
+      if (Array.isArray(imported)) {
+        records = imported;
+        save();
+        alert('資料匯入成功 ♡\n紀錄已完全恢復！');
+        renderManage();
+        go('sc-home');
+      } else {
+        alert('檔案格式錯誤：這不是有效的備份檔。');
+      }
+    } catch (err) {
+      alert('檔案格式錯誤：讀取失敗。');
+    }
+    event.target.value = ''; // 重置 input 讓同一個檔案也能重複選取
+  };
+  reader.readAsText(file);
 }
 
 /* ================= 母親專屬畫面（只顯示申請報銷金額） ================= */
