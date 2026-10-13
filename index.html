@@ -167,7 +167,7 @@ body { background:#FFF7FB; color:#7A6B78; font-size:15px; line-height:1.7; lette
   <div class="logo-ring"><div class="logo-inner">卓</div></div>
   <div class="brand">
     <div class="brand-title">卓淇記帳與報銷系統</div>
-    <div class="brand-sub">✧ 請選擇登入身份 ✧</div>
+    <div class="brand-sub" id="cloud-status">☁️ 努力連線雲端資料庫中...</div>
   </div>
   <div class="card">
     <button class="btn btn-primary" onclick="askPwd()">卓淇本人（需要密碼）</button>
@@ -297,18 +297,6 @@ body { background:#FFF7FB; color:#7A6B78; font-size:15px; line-height:1.7; lette
   <div class="back-bar"><button class="btn btn-back" onclick="go('sc-home')">‹ 返回主選單</button></div>
   <div class="section-title">✧ 所有帳目紀錄 ✧</div>
   <div class="card" id="manage-list"></div>
-  
-  <!-- 新增：備份與還原功能 -->
-  <div class="card" style="background:#FFF7FB; border:2px dashed #D4BFFF;">
-    <div class="card-title" style="font-size:16px;">✧ 資料安全 (備份與還原)</div>
-    <div class="muted" style="margin-bottom:12px;">若清除了瀏覽器暫存或更換設備，資料可能會遺失。建議定期「匯出備份」，有需要時再「匯入」即可恢復。</div>
-    <div style="display:flex; gap:10px;">
-      <button class="btn btn-primary" style="margin-top:0; flex:1; font-size:13px;" onclick="exportData()">📥 匯出備份</button>
-      <button class="btn btn-secondary" style="margin-top:0; flex:1; font-size:13px;" onclick="document.getElementById('import-file').click()">📤 匯入資料</button>
-      <input type="file" id="import-file" accept=".json" style="display:none" onchange="importData(event)">
-    </div>
-  </div>
-  
   <button class="btn btn-danger" style="margin:10px 18px;width:calc(100% - 36px)" onclick="clearAll()">清空所有紀錄（刪除試驗記錄）</button>
 </div>
 
@@ -334,27 +322,73 @@ body { background:#FFF7FB; color:#7A6B78; font-size:15px; line-height:1.7; lette
 </div>
 
 <script>
-/* ================= 核心資料層 ================= */
-const PASSWORD = '0319';      // 密碼寫死，預設 0319
+/* ================= 核心雲端資料與設定 ================= */
+// ▼▼▼ 請將剛剛複製的 Web App URL 貼在雙引號裡面 ▼▼▼
+const API_URL = "https://script.google.com/macros/s/AKfycbz5G7ojjm-hRVeEAthKacKdftsgvLg5INzcJfEqJ3yCKmVSqKqZTlD3KU5I6FepYGqu/exec"; 
+// ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
+
+const PASSWORD = '0319';      // 密碼
 const FIXED = 70;             // 每日固定早午餐報銷金額
 const KEY = 'zq_records';
-let records = JSON.parse(localStorage.getItem(KEY) || '[]');
-let role = '';                // 'zhuoqi' | 'mother'
-let calY, calM, calSel;       // 日曆狀態
-let editId = null;            // 正在編輯的紀錄 id
-let unresTab = 'todo';        // 未報銷頁分頁
-let selectedWeek = '';        // 儲蓄頁展開的週次
+
+let records = [];             // 預設先清空，等待雲端下載
+let role = '';                
+let calY, calM, calSel;       
+let editId = null;            
+let unresTab = 'todo';        
+let selectedWeek = '';        
+let isDataLoaded = false;     // 確認資料是否載入完成的標記
 
 const pad = n => n < 10 ? '0' + n : '' + n;
 const r2 = n => Math.round((Number(n)||0) * 100) / 100;
 const fmt = n => { const v = r2(n); return Number.isInteger(v) ? String(v) : v.toFixed(2); };
 const todayStr = () => { const d = new Date(); return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); };
-const save = () => localStorage.setItem(KEY, JSON.stringify(records));
 const catLabel = c => c === 'brunch' ? '早午餐' : '其他';
 const noteText = r => r.note || (r.category === 'brunch' ? '固定報銷' : '');
 const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 
-/* ---- ISO 週次（週一為每週第一天） ---- */
+/* ---- 啟動時：自動從雲端下載資料 ---- */
+function loadData() {
+  if (API_URL === "YOUR_WEB_APP_URL" || API_URL === "") {
+    // 如果還沒設定 API URL，就切換回單機版模式
+    records = JSON.parse(localStorage.getItem(KEY) || '[]');
+    isDataLoaded = true;
+    document.getElementById('cloud-status').textContent = '✧ 單機模式 (尚未設定雲端連線) ✧';
+    return;
+  }
+
+  fetch(API_URL)
+    .then(res => res.json())
+    .then(data => {
+      if (Array.isArray(data)) records = data;
+      isDataLoaded = true;
+      document.getElementById('cloud-status').textContent = '✧ 雲端連線成功・資料已同步 ✧';
+    })
+    .catch(err => {
+      // 萬一網路不穩，自動退回使用本機備份
+      records = JSON.parse(localStorage.getItem(KEY) || '[]');
+      isDataLoaded = true;
+      document.getElementById('cloud-status').textContent = '⚠️ 雲端連線失敗，目前顯示本機暫存資料';
+    });
+}
+loadData(); // 網頁一打開就開始載入
+
+/* ---- 儲存時：自動同步到雲端 ---- */
+function save() {
+  // 1. 先存在本機當作雙重保險
+  localStorage.setItem(KEY, JSON.stringify(records));
+  
+  // 2. 如果沒設定網址就跳過雲端儲存
+  if (API_URL === "YOUR_WEB_APP_URL" || API_URL === "") return;
+  
+  // 3. 把資料推送到雲端
+  fetch(API_URL, {
+    method: "POST",
+    body: JSON.stringify(records)
+  }).catch(err => console.log("雲端同步失敗", err));
+}
+
+/* ---- ISO 週次計算與各項邏輯 ---- */
 function weekInfo(dateStr) {
   const [y, m, d] = dateStr.split('-').map(Number);
   const date = new Date(Date.UTC(y, m-1, d));
@@ -377,7 +411,6 @@ function weekRange(weekKey) {
 }
 const weekLabel = wk => '第 ' + Number(wk.split('-W')[1]) + ' 週';
 
-/* ---- 儲蓄計算（嚴格依照規則） ---- */
 function saving(r) {
   if (r.category === 'brunch') return r.fixed ? r2(FIXED - (r.actual||0)) : 0;
   return r2((r.claimed||0) - (r.actual||0));
@@ -432,14 +465,17 @@ function toast(msg, warn) {
   clearTimeout(t._tm); t._tm = setTimeout(() => t.style.display = 'none', 1800);
 }
 
-/* ---- 登入 ---- */
+/* ---- 登入 (加入等待資料載入的防護) ---- */
 function askPwd() {
+  if (!isDataLoaded) return toast('雲端資料努力載入中，請稍等一秒...', true);
   document.getElementById('pwd-card').style.display = 'block';
   document.getElementById('pwd-input').value = '';
   document.getElementById('pwd-input').focus();
 }
 document.getElementById('pwd-input').addEventListener('keydown', e => { if (e.key === 'Enter') confirmPwd(); });
+
 function confirmPwd() {
+  if (!isDataLoaded) return toast('雲端資料努力載入中，請稍等一秒...', true);
   if (document.getElementById('pwd-input').value === PASSWORD) {
     role = 'zhuoqi'; renderHome(); go('sc-home');
   } else {
@@ -447,7 +483,10 @@ function confirmPwd() {
     document.getElementById('pwd-card').style.display = 'none';
   }
 }
-function loginMother() { role = 'mother'; renderMother(); go('sc-mother'); }
+function loginMother() {
+  if (!isDataLoaded) return toast('雲端資料努力載入中，請稍等一秒...', true);
+  role = 'mother'; renderMother(); go('sc-mother'); 
+}
 function logout() { if (confirm('確定要登出並返回身份選擇畫面嗎？')) { role = ''; go('sc-login'); } }
 
 /* ================= 卓淇主選單 ================= */
@@ -478,7 +517,6 @@ function renderHome() {
 
 /* ================= 功能1：新增早午餐 ================= */
 function prepBrunch() {
-  // 設定日期預設為今日
   document.getElementById('brunch-date').value = todayStr();
   document.getElementById('brunch-fixed').checked = true;
   document.getElementById('brunch-actual').value = '';
@@ -511,14 +549,13 @@ function saveBrunch() {
   records[records.length-1].weekKey = weekKeyOf(selectedDate);
   save();
   const s = saving(records[records.length-1]);
-  alert(fixed ? '儲存成功 ♡\n本筆產生儲蓄差額：' + fmt(s) + ' 元'
-              : '儲存成功 ♡\n未啟用固定報銷，本筆不計算早午餐儲蓄');
+  alert(fixed ? '儲存成功 ♡\n本筆產生儲蓄差額：' + fmt(s) + ' 元\n（資料已同步至雲端）'
+              : '儲存成功 ♡\n未啟用固定報銷，本筆不計算早午餐儲蓄\n（資料已同步至雲端）');
   renderHome(); go('sc-home');
 }
 
 /* ================= 功能2：新增其他開支 ================= */
 function prepOther() {
-  // 設定日期預設為今日
   document.getElementById('other-date').value = todayStr();
   document.getElementById('other-note').value = '';
   document.getElementById('other-actual').value = '';
@@ -550,7 +587,7 @@ function saveOther() {
     reimbursed: false, createdAt: Date.now(), weekKey: weekKeyOf(selectedDate)
   };
   records.push(item); save();
-  alert('儲存成功 ♡\n本筆產生儲蓄差額：' + fmt(saving(item)) + ' 元');
+  alert('儲存成功 ♡\n本筆產生儲蓄差額：' + fmt(saving(item)) + ' 元\n（資料已同步至雲端）');
   renderHome(); go('sc-home');
 }
 
@@ -710,10 +747,10 @@ function renderMark() {
 function markOne(id, no) {
   if (!confirm(`確定將編號 ${no} 的帳目標記為「已報銷」嗎？\n已報銷的帳目不會再計入未報銷總額，但仍保留用於儲蓄與週報統計。`)) return;
   const r = records.find(x => x.id === id);
-  if (r) { r.reimbursed = true; save(); toast('已標記為已報銷'); renderMark(); }
+  if (r) { r.reimbursed = true; save(); toast('已標記為已報銷，雲端同步中...'); renderMark(); }
 }
 
-/* ================= 功能7：修改或刪除 + 備份還原 ================= */
+/* ================= 功能7：修改或刪除 ================= */
 function renderManage() {
   if (!guardZhuoqi()) return;
   const list = records.slice().sort((a,b) => a.date < b.date ? -1 : a.date > b.date ? 1 : a.createdAt - b.createdAt);
@@ -742,7 +779,7 @@ function renderManage() {
 function delOne(id, no) {
   if (!confirm(`確定刪除編號 ${no} 的紀錄嗎？\n刪除後系統會自動重新計算相關週的儲蓄總額以及總儲蓄。`)) return;
   records = records.filter(r => r.id !== id); save();
-  toast('已刪除'); renderManage();
+  toast('已刪除，並同步至雲端'); renderManage();
 }
 function openEdit(id) {
   editId = id;
@@ -803,49 +840,17 @@ function saveEdit() {
     r.claimed = r2(claimed);
   }
   r.note = document.getElementById('ed-note').value.trim();
-  r.weekKey = weekKeyOf(date);   // 自動重新歸入週次、重算儲蓄
+  r.weekKey = weekKeyOf(date);
   save();
-  alert('修改成功 ♡\n系統已自動重新計算相關週的儲蓄總額以及總儲蓄');
+  alert('修改成功 ♡\n系統已自動重新計算並同步至雲端');
   renderManage(); go('sc-manage');
 }
 function clearAll() {
   if (!records.length) return toast('目前沒有任何紀錄', true);
   if (!confirm(`確定清空全部 ${records.length} 筆紀錄嗎？此操作無法復原。`)) return;
-  if (!confirm('所有帳目、報銷狀態、儲蓄統計將全部被刪除，確定嗎？')) return;
+  if (!confirm('所有帳目將全部被刪除，雲端資料庫也會被清空，確定嗎？')) return;
   records = []; save();
-  toast('已清空所有紀錄'); renderManage();
-}
-
-/* ================= 匯出與匯入資料 (解決失憶問題) ================= */
-function exportData() {
-  const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(records));
-  const dlAnchorElem = document.createElement('a');
-  dlAnchorElem.setAttribute("href", dataStr);
-  dlAnchorElem.setAttribute("download", "zq_records_backup_" + todayStr() + ".json");
-  dlAnchorElem.click();
-}
-function importData(event) {
-  const file = event.target.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    try {
-      const imported = JSON.parse(e.target.result);
-      if (Array.isArray(imported)) {
-        records = imported;
-        save();
-        alert('資料匯入成功 ♡\n紀錄已完全恢復！');
-        renderManage();
-        go('sc-home');
-      } else {
-        alert('檔案格式錯誤：這不是有效的備份檔。');
-      }
-    } catch (err) {
-      alert('檔案格式錯誤：讀取失敗。');
-    }
-    event.target.value = ''; // 重置 input 讓同一個檔案也能重複選取
-  };
-  reader.readAsText(file);
+  toast('已清空所有紀錄與雲端資料庫'); renderManage();
 }
 
 /* ================= 母親專屬畫面（只顯示申請報銷金額） ================= */
@@ -869,7 +874,7 @@ function reimburseAll() {
   let n = 0;
   records.forEach(r => { if (!r.reimbursed) { r.reimbursed = true; n++; } });
   save();
-  toast('已報銷 ' + n + ' 筆');
+  toast('已報銷 ' + n + ' 筆，資料雲端同步中...');
   renderMother();
 }
 
