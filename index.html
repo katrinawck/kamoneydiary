@@ -322,8 +322,9 @@ body { background:#FFF7FB; color:#7A6B78; font-size:15px; line-height:1.7; lette
     <button class="btn btn-primary" onclick="reimburseAll()">報銷以上待報銷項目 ♡</button>
   </div>
 
-  <div class="section-title">✧ 歷史已報銷項目 ✧</div>
-  <div class="card" id="mother-history-card"></div>
+  <div class="section-title">✧ 歷史已報銷項目（按次數分段） ✧</div>
+  <!-- 這裡從單個 card 改成 list，用來動態生成多個卡片 -->
+  <div id="mother-history-list"></div>
 
   <div style="padding:0 18px 40px">
     <button class="btn btn-secondary" onclick="logout()">登出（返回身份選擇畫面）</button>
@@ -862,7 +863,7 @@ function clearAll() {
   toast('已清空所有紀錄與雲端資料庫'); renderManage();
 }
 
-/* ================= 母親專屬畫面（包含待報銷與歷史報銷） ================= */
+/* ================= 母親專屬畫面（包含待報銷與歷史報銷分段） ================= */
 function renderMother() {
   // --- 1. 待報銷部分 ---
   const listTodo = unreimbursed();
@@ -870,34 +871,105 @@ function renderMother() {
   const cardTodo = document.getElementById('mother-card');
   const barTodo = document.getElementById('mother-total');
   
-  if (!listTodo.length) { 
-    cardTodo.innerHTML = '<div class="empty">全部項目已經報銷完成 ♡</div>'; 
-    barTodo.style.display = 'none'; 
+  if (!listTodo.length) {
+    cardTodo.innerHTML = '<div class="empty">全部項目已經報銷完成 ♡</div>';
+    barTodo.style.display = 'none';
   } else {
-    cardTodo.innerHTML = `<div class="list-head"><span>日期</span><span>類別</span><span>備註</span><span style="width:100px">申請報銷</span></div>` +
-      listTodo.map(r => `<div class="list-row"><span>${r.date}</span><span>${catLabel(r.category)}</span>
-        <span>${esc(noteText(r))}</span>
-        <span style="width:100px;color:#8E6FBF;font-weight:700">${fmt(r.claimed)} 元</span></div>`).join('');
+    // 待報銷清單
+    cardTodo.innerHTML = `<div class="list-head"><span>日期</span><span>類別</span><span>備註</span><span style="width:80px;text-align:right">申請報銷</span></div>` +
+      listTodo.map(r => `<div class="list-row"><span>${r.date.substring(5)}</span><span>${catLabel(r.category)}</span>
+        <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(noteText(r))}</span>
+        <span style="width:80px;text-align:right;color:#8E6FBF;font-weight:700">${fmt(r.claimed)}</span></div>`).join('');
     barTodo.style.display = 'block';
     barTodo.innerHTML = `<div class="row"><span>未報銷總計</span><span class="total-num">${fmt(claimTotal(listTodo))} 元</span></div>`;
   }
 
-  // --- 2. 歷史已報銷部分 ---
-  const listDone = reimbursed(); // 抓取所有已報銷的紀錄
-  const cardHistory = document.getElementById('mother-history-card');
+  // --- 2. 歷史已報銷部分 (分批次顯示) ---
+  const listDone = reimbursed();
+  const historyBox = document.getElementById('mother-history-list');
   
   if (!listDone.length) {
-    cardHistory.innerHTML = '<div class="empty">目前沒有已報銷的歷史紀錄</div>';
-  } else {
-    // 讓最新的紀錄排在最上面 (反轉陣列)
-    const sortedDone = listDone.slice().reverse(); 
-    cardHistory.innerHTML = `<div class="list-head"><span>日期</span><span>類別</span><span>備註</span><span style="width:100px;text-align:center">狀態</span></div>` +
-      sortedDone.map(r => `<div class="list-row"><span>${r.date}</span><span>${catLabel(r.category)}</span>
-        <span>${esc(noteText(r))}</span>
-        <span class="tag tag-done" style="width:90px;text-align:center;display:inline-block">${fmt(r.claimed)} 元<br>已報銷</span></div>`).join('');
+    historyBox.innerHTML = '<div class="card"><div class="empty">目前沒有已報銷的歷史紀錄</div></div>';
+    return;
   }
+
+  // 依據 reimburseBatch 分組（舊資料若無批次 ID，則預設用 weekKey 歸類為同一週）
+  const batches = {};
+  listDone.forEach(r => {
+    const bKey = r.reimburseBatch || r.weekKey;
+    if (!batches[bKey]) batches[bKey] = [];
+    batches[bKey].push(r);
+  });
+
+  // 生成分段的 HTML
+  historyBox.innerHTML = Object.keys(batches).sort((a, b) => {
+    // 批次排序：以每個批次中最新的日期為準，越新的批次排越上面
+    const maxA = batches[a].reduce((max, r) => r.date > max ? r.date : max, "");
+    const maxB = batches[b].reduce((max, r) => r.date > max ? r.date : max, "");
+    return maxB.localeCompare(maxA);
+  }).map(bKey => {
+    const items = batches[bKey];
+    const dates = items.map(r => r.date).sort();
+    const minD = dates[0];
+    const maxD = dates[dates.length - 1];
+    const uniqueDays = new Set(dates).size;
+    const totalClaim = claimTotal(items);
+
+    // 日期格式化：將 "2026-10-05" 轉為 "10月5日"
+    const fmtDate = d => parseInt(d.substring(5,7)) + '月' + parseInt(d.substring(8,10)) + '日';
+    const dateStr = minD === maxD ? fmtDate(minD) : `${fmtDate(minD)} - ${fmtDate(maxD)}`;
+
+    // 該批次內的明細
+    const itemsHtml = items.sort((a,b) => b.date.localeCompare(a.date)).map(r => `
+      <div class="detail-row">
+        <span style="width:45px;color:#9B8BA8">${parseInt(r.date.substring(5,7))}/${parseInt(r.date.substring(8,10))}</span>
+        <span style="width:50px" class="tag ${r.category==='brunch'?'tag-brunch':'tag-other'}">${catLabel(r.category)}</span>
+        <span style="flex:1;margin-left:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#6B5B7A">${esc(noteText(r))}</span>
+        <span style="width:60px;text-align:right;color:#8E6FBF;font-weight:700">${fmt(r.claimed)}</span>
+      </div>
+    `).join('');
+
+    return `
+      <div class="card" style="margin-bottom:16px; padding: 18px 20px;">
+        <div style="font-size:14px; font-weight:800; color:#6B5B7A; border-bottom:2px dashed #F3DCF0; padding-bottom:10px; margin-bottom:10px;">
+          ✧ ${dateStr} (共 ${uniqueDays} 天)<br>
+          <div style="color:#E88FA8; font-size:17px; margin-top:4px;">本次共報銷：${fmt(totalClaim)} 元</div>
+        </div>
+        ${itemsHtml}
+      </div>`;
+  }).join('');
 }
 
+function reimburseAll() {
+  const list = unreimbursed();
+  if (!list.length) return toast('目前沒有未報銷項目', true);
+  if (!confirm(`確定報銷以上全部 ${list.length} 筆未報銷項目（合計 ${fmt(claimTotal(list))} 元）嗎？`)) return;
+  
+  const batchId = Date.now(); // 產生這一次點擊報銷的「專屬批次 ID」
+  let n = 0;
+  records.forEach(r => { 
+    if (!r.reimbursed) { 
+      r.reimbursed = true; 
+      r.reimburseBatch = batchId; // 把這批資料用 ID 綁定在一起
+      n++; 
+    } 
+  });
+  save();
+  toast('已報銷 ' + n + ' 筆，資料雲端同步中...');
+  renderMother();
+}
+
+function markOne(id, no) {
+  if (!confirm(`確定將編號 ${no} 的帳目標記為「已報銷」嗎？\n已報銷的帳目不會再計入未報銷總額，但仍保留用於儲蓄與週報統計。`)) return;
+  const r = records.find(x => x.id === id);
+  if (r) { 
+    r.reimbursed = true; 
+    r.reimburseBatch = Date.now(); // 單獨標記報銷也給它一個批次 ID
+    save(); 
+    toast('已標記為已報銷，雲端同步中...'); 
+    renderMark(); 
+  }
+}
 /* 啟動：進入身份選擇畫面 */
 go('sc-login');
 </script>
